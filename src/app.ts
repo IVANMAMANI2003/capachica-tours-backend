@@ -24,7 +24,7 @@ app.use(helmet());
 // Habilitar CORS con la configuración
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    const allowedOrigins = ['http://localhost:4200', 'https://capachicawb.vercel.app'];
+    const allowedOrigins = ['http://localhost:4200', 'https://capachicawb.vercel.app', 'https://capachicaweb-eta.vercel.app'];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
