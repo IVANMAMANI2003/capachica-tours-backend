@@ -23,10 +23,9 @@ app.use(helmet());
 
 // Habilitar CORS con la configuración adecuada para producción
 app.use(cors({
-  origin: config.clientUrl || 'https://capachicaweb.vercel.app',
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Parsear JSON y URL-encoded bodies
