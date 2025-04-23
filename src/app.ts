@@ -36,6 +36,8 @@ const corsOptions = {
   credentials: true, // Permitir el envío de credenciales (cookies, headers de autorización, etc.)
 };
 
+app.use(cors(corsOptions));
+
 // Parsear JSON y URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
