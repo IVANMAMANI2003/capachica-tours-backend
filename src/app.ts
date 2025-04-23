@@ -21,12 +21,20 @@ const app: Express = express();
 // Seguridad básica
 app.use(helmet());
 
-// Habilitar CORS con la configuración adecuada para producción
-app.use(cors({
-  origin: '*',
+// Habilitar CORS con la configuración
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const allowedOrigins = ['http://localhost:4200', 'https://capachicawb.vercel.app'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Permitir el envío de credenciales (cookies, headers de autorización, etc.)
+};
 
 // Parsear JSON y URL-encoded bodies
 app.use(express.json());
