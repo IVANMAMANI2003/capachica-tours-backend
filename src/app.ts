@@ -21,8 +21,13 @@ const app: Express = express();
 // Seguridad básica
 app.use(helmet());
 
-// Habilitar CORS (configura según tus necesidades de producción)
-app.use(cors()); // Opciones: app.use(cors({ origin: 'tu-frontend.com' }))
+// Habilitar CORS con la configuración adecuada para producción
+app.use(cors({
+  origin: config.clientUrl || 'https://capachicaweb.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 // Parsear JSON y URL-encoded bodies
 app.use(express.json());
