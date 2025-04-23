@@ -48,6 +48,11 @@ app.get('/health', (req: Request, res: Response) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Manejar solicitudes de favicon.ico para evitar errores 404
+app.get('/favicon.ico', (req: Request, res: Response) => {
+    res.status(204).end(); // Responder con "No Content" (204)
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/emprendimientos', emprendimientoRoutes);
