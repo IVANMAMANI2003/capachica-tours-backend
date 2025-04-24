@@ -119,7 +119,7 @@ export const register = async (userData: RegisterBody, req: Request) => {
             roles: ['cliente'],
             message: "Registration successful. Please check your email to verify your account.",
             // Solo en modo desarrollo, incluir el token y la URL para pruebas
-            verificationToken: config.nodeEnv === 'development' ? verificationToken : undefined,
+            verificationToken,
             verificationUrl: config.nodeEnv === 'development' ? verificationUrl : undefined
         };
 
@@ -356,7 +356,7 @@ export const resendVerificationEmail = async (email: string, req: Request) => {
     return {
         message: 'Verification email has been resent.',
         // Solo en modo desarrollo, incluir información para pruebas
-        verificationToken: config.nodeEnv === 'development' ? verificationToken : undefined,
+        verificationToken,
         verificationUrl: config.nodeEnv === 'development' ? verificationUrl : undefined
     };
 };
