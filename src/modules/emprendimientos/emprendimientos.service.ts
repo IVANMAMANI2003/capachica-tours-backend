@@ -7,12 +7,26 @@ import { Request } from 'express';
 // Campos a seleccionar, incluyendo datos del dueño
 const EMPRENDIMIENTO_SELECT_FIELDS = `
     id, nombre, descripcion, tipo, direccion, estado, fecha_aprobacion, created_at, updated_at,
-    contacto_telefono, contacto_email, sitio_web, redes_sociales,
-    pais:paises ( id, nombre ),
-    ciudad:ciudades ( id, nombre ),
-    usuario:usuarios ( id, email, persona:personas ( nombre, apellidos, foto_perfil_url ) ),
-    aprobador:aprobado_por ( id, email, persona:personas( nombre, apellidos) )
-`; // Nota: 'aprobado_por' referencia a 'usuarios'
+    contacto_telefono, contacto_email, sitio_web, redes_sociales, coordenadas,
+    subdivision:subdivision_id (
+        id, name,
+        country:country_id (
+            id, name, code_iso
+        )
+    ),
+    usuario:usuario_id (
+        id, email,
+        persona:persona_id (
+            nombre, apellidos, foto_perfil_url
+        )
+    ),
+    aprobador:aprobado_por (
+        id, email,
+        persona:persona_id (
+            nombre, apellidos
+        )
+    )
+`; 
 
 // --- Funciones para Emprendedores y Admin ---
 
@@ -193,15 +207,15 @@ export const getAllEmprendimientos = async (user: JwtPayload | undefined, filter
     if (filters.tipo) {
         query = query.eq('tipo', filters.tipo);
     }
-    if (filters.paisId) {
-        query = query.eq('pais_id', filters.paisId);
+    
+    // Filtros de ubicación
+    if (filters.subdivisionId) {
+        query = query.eq('subdivision_id', filters.subdivisionId);
     }
-     if (filters.ciudadId) {
-        query = query.eq('ciudad_id', filters.ciudadId);
-    }
+    
     if (filters.search) {
         // Buscar en nombre O descripción (usar or)
-         query = query.or(`nombre.ilike.%<span class="math-inline">\{filters\.search\}%,descripcion\.ilike\.%</span>{filters.search}%`);
+         query = query.or(`nombre.ilike.%${filters.search}%,descripcion.ilike.%${filters.search}%`);
     }
 
     const { data, error, count } = await query;
@@ -230,7 +244,7 @@ export const updateEmprendimientoStatus = async (adminUserId: string, id: number
     if (!current) throw new NotFoundError(`Emprendimiento with ID ${id} not found`);
 
     if (current.estado === newStatus) {
-        return { message: `Emprendimiento <span class="math-inline">\{id\} is already in status '</span>{newStatus}'` };
+        return { message: `Emprendimiento ${id} is already in status '${newStatus}'` };
     }
 
     const updatePayload: any = {

@@ -29,8 +29,8 @@ export const getEmprendimientoById = asyncHandler(async (req: Request, res: Resp
 export const getAllEmprendimientos = asyncHandler(async (req: Request, res: Response) => {
     const user = getOptionalUser(req);
     // Extraer filtros y paginación del req.query (ya parseados por Zod si se usa)
-    const { page, limit, tipo, estado, paisId, ciudadId, search } = req.query as any;
-    const filters = { tipo, estado, paisId, ciudadId, search };
+    const { page, limit, tipo, estado, subdivisionId, search } = req.query as any;
+    const filters = { tipo, estado, subdivisionId, search };
 
     const result = await empService.getAllEmprendimientos(user, filters, page, limit);
     res.status(200).json(result);
