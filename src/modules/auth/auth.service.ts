@@ -397,9 +397,9 @@ export const requestPasswordReset = async (email: string, req: Request) => {
     return { 
         message: 'If an account with that email exists, a password reset link has been sent.',
         // Solo en modo desarrollo, incluir información para pruebas
-        resetToken: config.nodeEnv === 'development' ? resetToken : undefined,
-        resetUrl: config.nodeEnv === 'development' ? resetUrl : undefined,
-        expiresAt: config.nodeEnv === 'development' ? expiresAt.toISOString() : undefined
+        resetToken,
+        resetUrl,
+        expiresAt
     };
 };
 

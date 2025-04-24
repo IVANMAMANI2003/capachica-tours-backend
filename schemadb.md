@@ -183,41 +183,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-/*
--- Script para limpiar tokens invalidados expirados
--- Este script debe ejecutarse periódicamente (por ejemplo, cada día)
--- mediante un trabajo programado (cron job)
-
--- Eliminar tokens invalidados que ya han expirado manualmente
-DELETE FROM tokens_invalidados 
-WHERE expira_en < CURRENT_TIMESTAMP;
-
--- Nota: En un entorno de producción, podrías considerar crear una función
--- y programarla con pg_cron si tu proveedor de base de datos lo soporta:
-
-
--- Requiere la extensión pg_cron (disponible en PostgreSQL)
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- Crear una función para la limpieza
-CREATE OR REPLACE FUNCTION cleanup_invalidated_tokens()
-RETURNS void AS $$
-BEGIN
-    DELETE FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP;
-    
-    -- Opcional: registrar la operación
-    INSERT INTO registro_accesos (
-        usuario_id, tipo_evento, detalles
-    ) VALUES (
-        NULL, 'TOKENS_CLEANUP', 
-        jsonb_build_object('tokens_eliminados', (SELECT count(*) FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP), 'ejecutado_en', CURRENT_TIMESTAMP)
-    );
-END;
-$$ LANGUAGE plpgsql;
-
--- Programar la ejecución diaria a las 3 AM
-SELECT cron.schedule('0 3 * * *', 'SELECT cleanup_invalidated_tokens()');
-*/ 
+--
 
 -- Aplicar triggers para todas las tablas
 CREATE TRIGGER update_roles_updated_at
@@ -318,3 +284,39 @@ CREATE INDEX idx_tokens_invalidados_expiracion ON tokens_invalidados(expira_en);
 CREATE INDEX idx_tokens_invalidados_token_hash ON tokens_invalidados(token_hash);
 
 -- Toda la lógica de autenticación y autorización está en el backend con JWT
+
+/*
+-- Script para limpiar tokens invalidados expirados
+-- Este script debe ejecutarse periódicamente (por ejemplo, cada día)
+-- mediante un trabajo programado (cron job)
+
+-- Eliminar tokens invalidados que ya han expirado manualmente
+DELETE FROM tokens_invalidados 
+WHERE expira_en < CURRENT_TIMESTAMP;
+
+-- Nota: En un entorno de producción, podrías considerar crear una función
+-- y programarla con pg_cron si tu proveedor de base de datos lo soporta:
+
+
+-- Requiere la extensión pg_cron (disponible en PostgreSQL)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Crear una función para la limpieza
+CREATE OR REPLACE FUNCTION cleanup_invalidated_tokens()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP;
+    
+    -- Opcional: registrar la operación
+    INSERT INTO registro_accesos (
+        usuario_id, tipo_evento, detalles
+    ) VALUES (
+        NULL, 'TOKENS_CLEANUP', 
+        jsonb_build_object('tokens_eliminados', (SELECT count(*) FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP), 'ejecutado_en', CURRENT_TIMESTAMP)
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Programar la ejecución diaria a las 3 AM
+SELECT cron.schedule('0 3 * * *', 'SELECT cleanup_invalidated_tokens()');
+*/ 
