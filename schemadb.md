@@ -1,322 +1,446 @@
--- Schema para CapachicaTurs (Sistema de Usuarios) en Supabase
--- Con políticas RLS abiertas para gestión completa desde el backend
--- Nota: Todo el manejo de autenticación y autorización se realiza en el backend
-
--- La función gen_random_uuid() requiere la extensión pgcrypto
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- Tabla de roles
-CREATE TABLE roles (
-  id SERIAL PRIMARY KEY,
-  nombre VARCHAR(50) NOT NULL UNIQUE,
-  descripcion TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "roles" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(50) UNIQUE NOT NULL,
+  "descripcion" TEXT,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Insertamos los roles base
-INSERT INTO roles (nombre, descripcion) VALUES 
-  ('cliente', 'Usuario que realiza reservas y consultas en la plataforma'),
-  ('emprendedor', 'Usuario que administra un emprendimiento turístico'),
-  ('admin', 'Administrador del sistema con acceso completo');
-
--- Tabla de permisos
-CREATE TABLE permisos (
-  id SERIAL PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL UNIQUE,
-  descripcion TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "permisos" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(100) UNIQUE NOT NULL,
+  "descripcion" TEXT,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Insertamos permisos básicos del sistema
-INSERT INTO permisos (nombre, descripcion) VALUES
-  ('crear_reserva', 'Puede crear reservas de paquetes turísticos'),
-  ('ver_reservas_propias', 'Puede ver sus propias reservas'),
-  ('gestionar_perfil', 'Puede gestionar su información personal'),
-  ('gestionar_emprendimiento', 'Puede gestionar información de su emprendimiento'),
-  ('publicar_contenido', 'Puede publicar contenido en el blog de emprendimientos'),
-  ('ver_estadisticas_propias', 'Puede ver estadísticas de su emprendimiento'),
-  ('aprobar_contenido', 'Puede aprobar el contenido publicado por emprendedores'),
-  ('gestionar_usuarios', 'Puede crear, editar y suspender usuarios'),
-  ('gestionar_plataforma', 'Puede modificar la configuración general de la plataforma'),
-  ('ver_estadisticas_globales', 'Puede ver estadísticas generales de la plataforma');
-
--- Tabla de relación roles-permisos
-CREATE TABLE roles_permisos (
-  id SERIAL PRIMARY KEY,
-  rol_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-  permiso_id INTEGER NOT NULL REFERENCES permisos(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(rol_id, permiso_id)
+CREATE TABLE "roles_permisos" (
+  "id" SERIAL PRIMARY KEY,
+  "rol_id" SERIAL NOT NULL,
+  "permiso_id" INTEGER NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Asignamos permisos a roles
--- Permisos para clientes
-INSERT INTO roles_permisos (rol_id, permiso_id) 
-SELECT r.id, p.id FROM roles r, permisos p 
-WHERE r.nombre = 'cliente' AND p.nombre IN ('crear_reserva', 'ver_reservas_propias', 'gestionar_perfil');
-
--- Permisos para emprendedores
-INSERT INTO roles_permisos (rol_id, permiso_id) 
-SELECT r.id, p.id FROM roles r, permisos p 
-WHERE r.nombre = 'emprendedor' AND p.nombre IN ('gestionar_perfil', 'gestionar_emprendimiento', 'publicar_contenido', 'ver_estadisticas_propias', 'ver_reservas_propias');
-
--- Permisos para administradores (todos los permisos)
-INSERT INTO roles_permisos (rol_id, permiso_id) 
-SELECT r.id, p.id FROM roles r, permisos p 
-WHERE r.nombre = 'admin';
-
--- Tabla de personas (información personal separada de la cuenta de usuario)
-CREATE TABLE personas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre VARCHAR(100) NOT NULL,
-  apellidos VARCHAR(100) NOT NULL,
-  telefono VARCHAR(20),
-  direccion TEXT,
-  foto_perfil_url TEXT,
-  fecha_nacimiento DATE,
-  subdivision_id INTEGER REFERENCES subdivisions(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "countries" (
+  "id" SERIAL PRIMARY KEY,
+  "name" VARCHAR(100) UNIQUE NOT NULL,
+  "code_iso" VARCHAR(3) UNIQUE NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla de usuarios (sistema propio en lugar de auth.users)
--- No requiere integración con auth.users de Supabase
-CREATE TABLE usuarios (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  persona_id UUID NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  recovery_token VARCHAR(255),
-  recovery_token_expires_at TIMESTAMP WITH TIME ZONE,
-  email_verification_token VARCHAR(255),
-  email_verified BOOLEAN DEFAULT FALSE,
-  esta_activo BOOLEAN DEFAULT TRUE,
-  ultimo_acceso TIMESTAMP WITH TIME ZONE,
-  preferencias JSONB DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "subdivisions" (
+  "id" SERIAL PRIMARY KEY,
+  "country_id" SERIAL NOT NULL,
+  "name" VARCHAR(255) NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla para relación muchos a muchos entre usuarios y roles
-CREATE TABLE usuarios_roles (
-  id SERIAL PRIMARY KEY,
-  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  rol_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(usuario_id, rol_id)
+CREATE TABLE "personas" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(100) NOT NULL,
+  "apellidos" VARCHAR(100) NOT NULL,
+  "telefono" VARCHAR(20),
+  "direccion" TEXT,
+  "foto_perfil_url" TEXT,
+  "fecha_nacimiento" DATE,
+  "subdivision_id" SERIAL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla para emprendimientos 
-CREATE TABLE emprendimientos (
-  id SERIAL PRIMARY KEY,
-  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  nombre VARCHAR(200) NOT NULL,
-  descripcion TEXT,
-  tipo VARCHAR(50) NOT NULL, -- Hospedaje, Guía, Comida, Cultura, Fotografía
-  direccion TEXT,
-  subdivision_id INTEGER REFERENCES subdivisions(id),
-  coordenadas POINT,
-  contacto_telefono VARCHAR(20),
-  contacto_email VARCHAR(100),
-  sitio_web VARCHAR(200),
-  redes_sociales JSONB,
-  estado VARCHAR(20) DEFAULT 'pendiente', -- pendiente, aprobado, rechazado, suspendido
-  fecha_aprobacion TIMESTAMP WITH TIME ZONE,
-  aprobado_por UUID REFERENCES usuarios(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "usuarios" (
+  "id" SERIAL PRIMARY KEY,
+  "persona_id" SERIAL NOT NULL,
+  "email" VARCHAR(255) UNIQUE NOT NULL,
+  "password_hash" VARCHAR(255) NOT NULL,
+  "recovery_token" VARCHAR(255),
+  "recovery_token_expires_at" TIMESTAMP,
+  "email_verification_token" VARCHAR(255),
+  "email_verified" BOOLEAN DEFAULT false,
+  "esta_activo" BOOLEAN DEFAULT true,
+  "ultimo_acceso" TIMESTAMP,
+  "preferencias" JSONB DEFAULT '{}',
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla para registro de accesos (seguridad y auditoría)
-CREATE TABLE registro_accesos (
-  id SERIAL PRIMARY KEY,
-  usuario_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
-  ip_address VARCHAR(50),
-  user_agent TEXT,
-  tipo_evento VARCHAR(50) NOT NULL, -- login, logout, reset_password, failed_login, etc.
-  detalles JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "usuarios_roles" (
+  "id" SERIAL PRIMARY KEY,
+  "rol_id" SERIAL NOT NULL,
+  "usuario_id" SERIAL NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Creamos la estructura jerárquica 
--- Tabla de países
-CREATE TABLE countries (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    code_iso VARCHAR(3) NOT NULL UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "emprendimientos" (
+  "id" SERIAL PRIMARY KEY,
+  "usuario_id" SERIAL NOT NULL,
+  "nombre" VARCHAR(200) NOT NULL,
+  "descripcion" TEXT,
+  "tipo" VARCHAR(50) NOT NULL,
+  "direccion" TEXT,
+  "subdivision_id" INTEGER,
+  "coordenadas" POINT,
+  "contacto_telefono" VARCHAR(20),
+  "contacto_email" VARCHAR(100),
+  "sitio_web" VARCHAR(200),
+  "redes_sociales" JSONB,
+  "estado" VARCHAR(20) DEFAULT 'pendiente',
+  "fecha_aprobacion" TIMESTAMP,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla de subdiviciones de los paises (estados, provincias, departamentos, etc.)
-CREATE TABLE subdivisions (
-    id SERIAL PRIMARY KEY,
-    country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(country_id, name)
+CREATE TABLE "registro_accesos" (
+  "id" SERIAL PRIMARY KEY,
+  "usuario_id" SERIAL NOT NULL,
+  "ip_address" VARCHAR(50) NOT NULL,
+  "user_agent" TEXT NOT NULL,
+  "tipo_evento" VARCHAR(50) NOT NULL,
+  "detalles" JSONB,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
 );
 
--- Tabla para gestionar tokens invalidados (lista negra)
-CREATE TABLE tokens_invalidados (
-  id SERIAL PRIMARY KEY,
-  token_hash VARCHAR(64) NOT NULL UNIQUE,       -- Hash del token (no el token completo por seguridad)
-  usuario_id UUID NOT NULL,                     -- ID del usuario que cerró sesión
-  invalidado_en TIMESTAMP WITH TIME ZONE NOT NULL, -- Cuándo se invalidó
-  expira_en TIMESTAMP WITH TIME ZONE NOT NULL,  -- Cuándo expira el token
-  metadata JSONB DEFAULT '{}',                  -- Datos adicionales: IP, dispositivo, etc.
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "tokens_invalidados" (
+  "id" SERIAL PRIMARY KEY,
+  "token_hash" VARCHAR(64) UNIQUE NOT NULL,
+  "usuario_id" SERIAL NOT NULL,
+  "invalidado_en" TIMESTAMP NOT NULL,
+  "expira_en" TIMESTAMP NOT NULL,
+  "metadata" JSONB DEFAULT '{}',
+  "created_at" TIMESTAMP DEFAULT (now())
 );
 
--- Función para actualizar el timestamp 'updated_at'
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE "turista" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(100) NOT NULL,
+  "apellidos" VARCHAR(100) NOT NULL,
+  "telefono" VARCHAR(20) NOT NULL,
+  "direccion" TEXT NOT NULL,
+  "edad" NUMERIC NOT NULL,
+  "sexo" VARCHAR(20) NOT NULL,
+  "pais" TEXT NOT NULL,
+  "peticiones_espciales" TEXT,
+  "email" VARCHAR(255) UNIQUE NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
---
+CREATE TABLE "lugares_turisticos" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(200) NOT NULL,
+  "descripcion" TEXT NOT NULL,
+  "direccion" TEXT NOT NULL,
+  "coordenadas" POINT NOT NULL,
+  "horario_apertura" TIME,
+  "horario_cierre" TIME,
+  "costo_entrada" DECIMAL(10,2),
+  "recomendaciones" TEXT,
+  "restricciones" TEXT,
+  "es_destacado" BOOLEAN DEFAULT false,
+  "estado" VARCHAR(20) DEFAULT 'activo',
+  "imagen_url" TEXT NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
--- Aplicar triggers para todas las tablas
-CREATE TRIGGER update_roles_updated_at
-BEFORE UPDATE ON roles
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "itinerario_lugares" (
+  "id" SERIAL PRIMARY KEY,
+  "itinerrarios_reserva_id" SERIAL,
+  "lugares_turisticos_id" SERIAL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_permisos_updated_at
-BEFORE UPDATE ON permisos
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "servicios_emprendedores" (
+  "id" SERIAL PRIMARY KEY,
+  "servicios_id" SERIAL NOT NULL,
+  "emprendimiento_id" SERIAL NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_roles_permisos_updated_at
-BEFORE UPDATE ON roles_permisos
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "servicios" (
+  "id" SERIAL PRIMARY KEY,
+  "emprendimiento_id" INTEGER NOT NULL,
+  "tipo_servicio_id" INTEGER NOT NULL,
+  "nombre" VARCHAR(200) NOT NULL,
+  "descripcion" TEXT,
+  "precio_base" DECIMAL(10,2) NOT NULL,
+  "moneda" VARCHAR(3) DEFAULT 'PEN',
+  "estado" VARCHAR(20) DEFAULT 'activo',
+  "imagen_url" TEXT NOT NULL,
+  "detalles_servicio" JSONB NOT NULL DEFAULT '{}',
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_personas_updated_at
-BEFORE UPDATE ON personas
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "paquetes_turisticos_servicios" (
+  "id" SERIAL PRIMARY KEY,
+  "servicios_id" SERIAL NOT NULL,
+  "paquetes_turisticos_id" SERIAL NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_usuarios_updated_at
-BEFORE UPDATE ON usuarios
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "paquetes_turisticos" (
+  "id" SERIAL PRIMARY KEY,
+  "emprendimiento_id" SERIAL,
+  "nombre" VARCHAR(200) NOT NULL,
+  "descripcion" TEXT NOT NULL,
+  "duracion_dias" INTEGER NOT NULL,
+  "duracion_noches" INTEGER,
+  "precio_por_persona" DECIMAL(10,2) NOT NULL,
+  "moneda" VARCHAR(3) DEFAULT 'PEN',
+  "capacidad_maxima" INTEGER,
+  "fecha_inicio" DATE,
+  "fecha_fin" DATE,
+  "lugares_visitados" JSONB,
+  "requisitos" TEXT,
+  "incluye" TEXT,
+  "no_incluye" TEXT,
+  "estado" VARCHAR(20) DEFAULT 'activo',
+  "es_personalizable" BOOLEAN DEFAULT false,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_usuarios_roles_updated_at
-BEFORE UPDATE ON usuarios_roles
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "disponibilidad_paquetes" (
+  "id" SERIAL PRIMARY KEY,
+  "paquete_id" SERIAL NOT NULL,
+  "fecha_inicio" DATE NOT NULL,
+  "fecha_fin" DATE NOT NULL,
+  "cupos_disponibles" INTEGER NOT NULL,
+  "precio_especial" DECIMAL(10,2),
+  "notas" TEXT,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_emprendimientos_updated_at
-BEFORE UPDATE ON emprendimientos
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "tipos_servicio" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(100) NOT NULL,
+  "descripcion" TEXT,
+  "imagen_url" TEXT NOT NULL,
+  "requiere_cupo" BOOLEAN DEFAULT false,
+  "created_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_registro_accesos_updated_at
-BEFORE UPDATE ON registro_accesos
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "servicios_disponibilidad" (
+  "id" SERIAL PRIMARY KEY,
+  "servicio_id" INTEGER NOT NULL,
+  "fecha" DATE NOT NULL,
+  "cupos_disponibles" INTEGER NOT NULL,
+  "precio_especial" DECIMAL(10,2)
+);
 
-CREATE TRIGGER update_countries_updated_at
-BEFORE UPDATE ON countries
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "reseñas" (
+  "id" SERIAL PRIMARY KEY,
+  "usuario_id" SERIAL NOT NULL,
+  "tipo_objeto" VARCHAR(50) NOT NULL,
+  "calificacion" INTEGER NOT NULL,
+  "comentario" TEXT,
+  "fecha_experiencia" DATE,
+  "respuesta_owner" TEXT,
+  "fecha_respuesta" TIMESTAMP,
+  "estado" VARCHAR(20) DEFAULT 'pendiente',
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-CREATE TRIGGER update_subdivisions_updated_at
-BEFORE UPDATE ON subdivisions
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+CREATE TABLE "favoritos" (
+  "id" SERIAL PRIMARY KEY,
+  "estado" VARCHAR(20) DEFAULT 'pendiente',
+  "usuario_id" SERIAL NOT NULL,
+  "emprendimiento_id" INTEGER NOT NULL,
+  "created_at" TIMESTAMP DEFAULT (now())
+);
 
--- Habilitar RLS (Row Level Security) para todas las tablas
--- Aunque usamos políticas abiertas, mantenemos RLS habilitado por seguridad
-ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE permisos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE roles_permisos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE personas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios_roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE emprendimientos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE registro_accesos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subdivisions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tokens_invalidados ENABLE ROW LEVEL SECURITY;
+CREATE TABLE "reservas" (
+  "id" SERIAL PRIMARY KEY,
+  "codigo_reserva" VARCHAR(20) UNIQUE NOT NULL,
+  "turista_id" SERIAL NOT NULL,
+  "tipo_reserva" VARCHAR(50) NOT NULL,
+  "fecha_reserva" TIMESTAMP DEFAULT (now()),
+  "fecha_inicio" DATE NOT NULL,
+  "hora" VARCHAR(50),
+  "fecha_fin" DATE,
+  "cantidad_personas" INTEGER DEFAULT 1,
+  "precio_total" DECIMAL(10,2) NOT NULL,
+  "moneda" VARCHAR(3) DEFAULT 'PEN',
+  "estado" VARCHAR(20) DEFAULT 'pendiente',
+  "metodo_pago" VARCHAR(50),
+  "datos_pago" JSONB,
+  "notas" TEXT,
+  "motivo_cancelacion" TEXT,
+  "fecha_cancelacion" TIMESTAMP,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
+CREATE TABLE "itinerarios_reserva" (
+  "id" SERIAL PRIMARY KEY,
+  "fecha" DATE NOT NULL,
+  "hora" TIME,
+  "tipo_evento" VARCHAR(100) NOT NULL,
+  "descripcion" TEXT NOT NULL,
+  "notas" TEXT,
+  "duracion" integer,
+  "reserva_id" SERIAL NOT NULL,
+  "servicio_id" SERIAL,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
--- Políticas RLS abiertas para permitir gestión completa desde el backend
--- Se abre el acceso completamente ya que la autenticación y autorización 
--- ahora se manejan a nivel de la API backend
+CREATE TABLE "pago" (
+  "id" SERIAL PRIMARY KEY,
+  "reserva_id" SERIAL NOT NULL,
+  "codigo_transaccion" VARCHAR(100) UNIQUE,
+  "monto_total" DECIMAL(12,2) NOT NULL,
+  "moneda" VARCHAR(3) DEFAULT 'PEN',
+  "estado" VARCHAR(20) DEFAULT 'pendiente',
+  "fecha_pago" TIMESTAMP,
+  "datos_metodo_pago" JSONB,
+  "metadata" JSONB DEFAULT '{}',
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
--- Políticas abiertas para todas las tablas (TODAS las operaciones)
-CREATE POLICY all_access_policy ON roles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON permisos FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON roles_permisos FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON personas FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON usuarios FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON usuarios_roles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON emprendimientos FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON registro_accesos FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON countries FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON subdivisions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY all_access_policy ON tokens_invalidados FOR ALL USING (true) WITH CHECK (true);
+CREATE TABLE "pago_detalle" (
+  "id" SERIAL PRIMARY KEY,
+  "pago_id" SERIAL NOT NULL,
+  "tipo_pago_id" SERIAL NOT NULL,
+  "concepto" VARCHAR(100) NOT NULL,
+  "monto" DECIMAL(12,2) NOT NULL,
+  "porcentaje_impuesto" DECIMAL(5,2) DEFAULT 0,
+  "cantidad" INTEGER DEFAULT 1,
+  "descripcion" TEXT,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
--- Índices para optimización de consultas
-CREATE INDEX idx_usuarios_persona ON usuarios(persona_id);
-CREATE INDEX idx_usuarios_email ON usuarios(email);
-CREATE INDEX idx_usuarios_roles_usuario ON usuarios_roles(usuario_id);
-CREATE INDEX idx_usuarios_roles_rol ON usuarios_roles(rol_id);
-CREATE INDEX idx_emprendimientos_usuario ON emprendimientos(usuario_id);
-CREATE INDEX idx_emprendimientos_estado ON emprendimientos(estado);
-CREATE INDEX idx_emprendimientos_tipo ON emprendimientos(tipo);
-CREATE INDEX idx_personas_subdivision ON personas(subdivision_id);
-CREATE INDEX idx_emprendimientos_subdivision ON emprendimientos(subdivision_id);
-CREATE INDEX idx_subdivisions_country ON subdivisions(country_id);
-CREATE INDEX idx_tokens_invalidados_usuario ON tokens_invalidados(usuario_id);
-CREATE INDEX idx_tokens_invalidados_expiracion ON tokens_invalidados(expira_en);
-CREATE INDEX idx_tokens_invalidados_token_hash ON tokens_invalidados(token_hash);
+CREATE TABLE "tipo_pago" (
+  "id" SERIAL PRIMARY KEY,
+  "nombre" VARCHAR(50) UNIQUE NOT NULL,
+  "descripcion" TEXT,
+  "requiere_verificacion" BOOLEAN DEFAULT false,
+  "comision_porcentaje" DECIMAL(5,2) DEFAULT 0,
+  "activo" BOOLEAN DEFAULT true,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
--- Toda la lógica de autenticación y autorización está en el backend con JWT
+CREATE TABLE "comprobantes" (
+  "id" SERIAL PRIMARY KEY,
+  "pago_id" SERIAL NOT NULL,
+  "tipo_comprobante" VARCHAR(20) NOT NULL,
+  "serie" VARCHAR(4) NOT NULL,
+  "numero" INTEGER NOT NULL,
+  "fecha_emision" TIMESTAMP NOT NULL DEFAULT (now()),
+  "ruc_cliente" VARCHAR(11),
+  "razon_social" VARCHAR(100),
+  "direccion_cliente" TEXT,
+  "subtotal" DECIMAL(12,2) NOT NULL,
+  "igv" DECIMAL(12,2) DEFAULT 0,
+  "total" DECIMAL(12,2) NOT NULL,
+  "moneda" VARCHAR(3) DEFAULT 'PEN',
+  "estado" VARCHAR(20) DEFAULT 'emitido',
+  "codigo_sunat" VARCHAR(100),
+  "codigo_hash" VARCHAR(100),
+  "xml_url" TEXT,
+  "pdf_url" TEXT,
+  "created_at" TIMESTAMP DEFAULT (now()),
+  "updated_at" TIMESTAMP DEFAULT (now())
+);
 
-/*
--- Script para limpiar tokens invalidados expirados
--- Este script debe ejecutarse periódicamente (por ejemplo, cada día)
--- mediante un trabajo programado (cron job)
+CREATE UNIQUE INDEX ON "roles_permisos" ("rol_id", "permiso_id");
 
--- Eliminar tokens invalidados que ya han expirado manualmente
-DELETE FROM tokens_invalidados 
-WHERE expira_en < CURRENT_TIMESTAMP;
+CREATE UNIQUE INDEX ON "subdivisions" ("country_id", "name");
 
--- Nota: En un entorno de producción, podrías considerar crear una función
--- y programarla con pg_cron si tu proveedor de base de datos lo soporta:
+CREATE UNIQUE INDEX ON "usuarios_roles" ("usuario_id", "rol_id");
 
+CREATE INDEX ON "servicios" ("emprendimiento_id", "tipo_servicio_id");
 
--- Requiere la extensión pg_cron (disponible en PostgreSQL)
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE UNIQUE INDEX ON "disponibilidad_paquetes" ("paquete_id", "fecha_inicio", "fecha_fin");
 
--- Crear una función para la limpieza
-CREATE OR REPLACE FUNCTION cleanup_invalidated_tokens()
-RETURNS void AS $$
-BEGIN
-    DELETE FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP;
-    
-    -- Opcional: registrar la operación
-    INSERT INTO registro_accesos (
-        usuario_id, tipo_evento, detalles
-    ) VALUES (
-        NULL, 'TOKENS_CLEANUP', 
-        jsonb_build_object('tokens_eliminados', (SELECT count(*) FROM tokens_invalidados WHERE expira_en < CURRENT_TIMESTAMP), 'ejecutado_en', CURRENT_TIMESTAMP)
-    );
-END;
-$$ LANGUAGE plpgsql;
+CREATE UNIQUE INDEX ON "servicios_disponibilidad" ("servicio_id", "fecha");
 
--- Programar la ejecución diaria a las 3 AM
-SELECT cron.schedule('0 3 * * *', 'SELECT cleanup_invalidated_tokens()');
-*/ 
+CREATE UNIQUE INDEX ON "favoritos" ("emprendimiento_id", "usuario_id");
+
+CREATE INDEX "idx_pagos_reserva" ON "pago" ("reserva_id");
+
+CREATE INDEX "idx_pagos_transaccion" ON "pago" ("codigo_transaccion");
+
+CREATE INDEX "idx_pagos_estado" ON "pago" ("estado");
+
+CREATE INDEX "idx_detalles_pago" ON "pago_detalle" ("pago_id");
+
+CREATE UNIQUE INDEX ON "comprobantes" ("serie", "numero");
+
+CREATE UNIQUE INDEX ON "comprobantes" ("pago_id");
+
+ALTER TABLE "roles_permisos" ADD FOREIGN KEY ("rol_id") REFERENCES "roles" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "roles_permisos" ADD FOREIGN KEY ("permiso_id") REFERENCES "permisos" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "subdivisions" ADD FOREIGN KEY ("country_id") REFERENCES "countries" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "personas" ADD FOREIGN KEY ("subdivision_id") REFERENCES "subdivisions" ("id");
+
+ALTER TABLE "usuarios" ADD FOREIGN KEY ("persona_id") REFERENCES "personas" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "usuarios_roles" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "usuarios_roles" ADD FOREIGN KEY ("rol_id") REFERENCES "roles" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "emprendimientos" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "emprendimientos" ADD FOREIGN KEY ("subdivision_id") REFERENCES "subdivisions" ("id");
+
+ALTER TABLE "registro_accesos" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id") ON DELETE SET NULL;
+
+ALTER TABLE "tokens_invalidados" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id");
+
+ALTER TABLE "servicios_emprendedores" ADD FOREIGN KEY ("emprendimiento_id") REFERENCES "emprendimientos" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "servicios_emprendedores" ADD FOREIGN KEY ("servicios_id") REFERENCES "servicios" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "paquetes_turisticos" ADD FOREIGN KEY ("emprendimiento_id") REFERENCES "emprendimientos" ("id") ON DELETE SET NULL;
+
+ALTER TABLE "paquetes_turisticos_servicios" ADD FOREIGN KEY ("paquetes_turisticos_id") REFERENCES "paquetes_turisticos" ("id") ON DELETE SET NULL;
+
+ALTER TABLE "paquetes_turisticos_servicios" ADD FOREIGN KEY ("servicios_id") REFERENCES "servicios" ("id") ON DELETE SET NULL;
+
+ALTER TABLE "disponibilidad_paquetes" ADD FOREIGN KEY ("paquete_id") REFERENCES "paquetes_turisticos" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "reseñas" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "favoritos" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "favoritos" ADD FOREIGN KEY ("emprendimiento_id") REFERENCES "emprendimientos" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "reservas" ADD FOREIGN KEY ("turista_id") REFERENCES "turista" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "itinerarios_reserva" ADD FOREIGN KEY ("reserva_id") REFERENCES "reservas" ("id") ON DELETE CASCADE;
+
+ALTER TABLE "itinerarios_reserva" ADD FOREIGN KEY ("servicio_id") REFERENCES "servicios" ("id");
+
+ALTER TABLE "pago_detalle" ADD FOREIGN KEY ("tipo_pago_id") REFERENCES "tipo_pago" ("id");
+
+ALTER TABLE "pago_detalle" ADD FOREIGN KEY ("pago_id") REFERENCES "pago" ("id");
+
+ALTER TABLE "pago" ADD FOREIGN KEY ("reserva_id") REFERENCES "reservas" ("id");
+
+ALTER TABLE "itinerario_lugares" ADD FOREIGN KEY ("itinerrarios_reserva_id") REFERENCES "itinerarios_reserva" ("id");
+
+ALTER TABLE "itinerario_lugares" ADD FOREIGN KEY ("lugares_turisticos_id") REFERENCES "lugares_turisticos" ("id");
+
+ALTER TABLE "comprobantes" ADD FOREIGN KEY ("pago_id") REFERENCES "pago" ("id");
+
+ALTER TABLE "servicios" ADD FOREIGN KEY ("tipo_servicio_id") REFERENCES "tipos_servicio" ("id");
+
+ALTER TABLE "servicios_disponibilidad" ADD FOREIGN KEY ("servicio_id") REFERENCES "servicios" ("id") ON DELETE CASCADE;
